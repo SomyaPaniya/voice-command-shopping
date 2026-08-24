@@ -12,6 +12,36 @@ function App() {
   const [isParsing, setIsParsing] = useState(false);
   const [parseSource, setParseSource] = useState("");
 
+  const [searchResults, setSearchResults] = useState([]);
+  const [substituteSuggestion, setSubstituteSuggestion] = useState(null);
+  
+  const currentMonth = new Date().getMonth();
+  const seasonalRecommendations = {
+    0: ['Hot Chocolate', 'Oatmeal', 'Soup'],
+    1: ['Chocolates', 'Strawberries', 'Wine'],
+    2: ['Corned Beef', 'Cabbage', 'Potatoes'],
+    3: ['Eggs', 'Ham', 'Carrots'],
+    4: ['Avocado', 'Tomatoes', 'Tortilla Chips'],
+    5: ['Watermelon', 'Ice Cream', 'Hot Dogs'],
+    6: ['Burgers', 'Lemonade', 'Berries'],
+    7: ['Peaches', 'Corn', 'Iced Tea'],
+    8: ['Apples', 'Pumpkin', 'Cinnamon'],
+    9: ['Candy', 'Pumpkin Spice', 'Caramel'],
+    10: ['Turkey', 'Cranberries', 'Sweet Potatoes'],
+    11: ['Gingerbread', 'Eggnog', 'Peppermint']
+  };
+  const currentSeasonals = seasonalRecommendations[currentMonth] || [];
+
+  const substituteDictionary = {
+    'milk': 'Almond Milk',
+    'sugar': 'Stevia',
+    'white bread': 'Whole Wheat Bread',
+    'butter': 'Margarine',
+    'soda': 'Sparkling Water',
+    'potato chips': 'Veggie Chips'
+  };
+
+
   const [shoppingList, setShoppingList] = useState(() => {
     try {
       const saved = localStorage.getItem("shoppingList");
@@ -107,8 +137,20 @@ function App() {
         return { ...prev, [lowerName]: (prev[lowerName] || 0) + 1 };
       });
 
+
       setShoppingList((prevList) => {
+        const lowerItemName = command.item.toLowerCase();
+        
+        // Check for substitute
+        const sub = Object.keys(substituteDictionary).find(k => lowerItemName.includes(k));
+        if (sub) {
+          setSubstituteSuggestion({ original: command.item, substitute: substituteDictionary[sub] });
+        } else {
+          setSubstituteSuggestion(null);
+        }
+
         const existingIndex = prevList.findIndex(
+
           (i) => i.item.toLowerCase() === command.item.toLowerCase(),
         );
 
@@ -398,6 +440,32 @@ function App() {
           </section>
         )}
 
+
+        {searchResults.length > 0 && (
+          <section className="search-results-section" aria-label="Search Results">
+            <h3>🔍 Search Results</h3>
+            <ul className="search-list">
+              {searchResults.map(prod => (
+                <li key={prod.id} className="search-item-row">
+                  <div>
+                    <strong>{prod.name}</strong> <span className="brand-badge">{prod.brand}</span>
+                    <div className="search-meta">{prod.size} - ${prod.price}</div>
+                  </div>
+                  <button 
+                    className="btn-add-search"
+                    onClick={() => {
+                      processShoppingCommand({ action: 'add', item: prod.name, quantity: 1 });
+                      setSearchResults([]);
+                    }}
+                  >
+                    + Add
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="lists-layout">
           <section className="shopping-list-section" aria-label="Shopping List">
             <header className="list-header">
@@ -409,6 +477,14 @@ function App() {
                 </span>
               )}
             </header>
+
+
+            {substituteSuggestion && (
+              <div className="substitute-alert">
+                <span>💡 Added <strong>{substituteSuggestion.original}</strong>. Try <strong>{substituteSuggestion.substitute}</strong> next time for a healthier choice!</span>
+                <button className="btn-dismiss" onClick={() => setSubstituteSuggestion(null)}>✖</button>
+              </div>
+            )}
 
             {shoppingList.length === 0 ? (
               <div className="empty-state">
@@ -441,6 +517,26 @@ function App() {
               </ul>
             )}
           </section>
+
+
+          {currentSeasonals.length > 0 && (
+            <aside className="suggestions-aside seasonal-aside" aria-label="Seasonal Recommendations">
+              <h3>🌞 Seasonal Picks</h3>
+              <p>Perfect for this month:</p>
+              <div className="suggestion-chips">
+                {currentSeasonals.map((itemName) => (
+                  <button
+                    key={itemName}
+                    className="chip chip-seasonal"
+                    onClick={() => processShoppingCommand({ action: 'add', item: itemName, quantity: 1 })}
+                    aria-label={"Add " + itemName + " to list"}
+                  >
+                    {capitalize(itemName)} <span className="chip-plus">+</span>
+                  </button>
+                ))}
+              </div>
+            </aside>
+          )}
 
           {suggestions.length > 0 && (
             <aside className="suggestions-aside" aria-label="Smart Suggestions">

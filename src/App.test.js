@@ -291,7 +291,8 @@ describe("Phase 6: Smart Suggestions", () => {
 
     render(<App />);
     const addButtons = screen.getAllByRole("button", { name: /Add.*to list/i });
-    expect(addButtons).toHaveLength(5);
+    const historyButtons = addButtons.filter(b => !b.className.includes("chip-seasonal") && !b.className.includes("btn-add-search"));
+    expect(historyButtons).toHaveLength(5);
   });
 
   test("clicking Add adds the suggested item and records purchase history", () => {
