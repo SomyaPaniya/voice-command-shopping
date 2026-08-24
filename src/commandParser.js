@@ -8,6 +8,14 @@
  * @returns {object} - Parsed command object: { action, item, quantity }
  */
 export function parseCommand(text) {
+
+  const cleanItemName = (rawItem) => {
+    return rawItem
+      .replace(/\b(please|again|also|too|some more|add|buy)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   if (!text || typeof text !== 'string') {
     return { action: 'unknown', item: null, quantity: null };
   }
@@ -18,7 +26,7 @@ export function parseCommand(text) {
   if (searchMatch) {
     return {
       action: "search",
-      item: searchMatch[2].trim(),
+      item: cleanItemName(searchMatch[2]),
       quantity: 1,
       brand: null,
       maxPrice: null
@@ -38,7 +46,7 @@ export function parseCommand(text) {
       action: 'remove',
       extract: (match) => {
         return {
-          item: match[1].trim(),
+          item: cleanItemName(match[1]),
           quantity: null // Removals don't strictly need a quantity for our Phase 2 use-case
         };
       }
@@ -67,7 +75,7 @@ export function parseCommand(text) {
         }
 
         return {
-          item: match[2].trim(),
+          item: cleanItemName(match[2]),
           quantity: parsedQuantity
         };
       }

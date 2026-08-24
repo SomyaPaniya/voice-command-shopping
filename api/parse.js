@@ -36,7 +36,7 @@ If the user is asking to remove or delete something, action is "remove".
 If the user is asking to search, find, or look for something (e.g. "find Silk milk under 5 dollars"), action is "search".
 For search, extract the brand if specified, and maxPrice if a maximum price or budget is specified.
 If the phrase is gibberish, empty, or unrelated to shopping, action is "unknown".
-Filter out unit words like "bottles of", "packs of", etc., from the item name. 
+Filter out unit words like "bottles of", "packs of", etc., from the item name.\nAlso completely strip conversational filler words (e.g., "again", "please", "also", "too", "some more", "add") from the item name, returning just the core product name. 
 Default quantity to 1 if not specified.
 
 User request to parse: "${text}"`;

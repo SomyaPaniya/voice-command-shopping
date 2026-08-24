@@ -65,4 +65,21 @@ describe('Command Parser (Phase 2)', () => {
       expect(result).toEqual({ action: 'unknown', item: null, quantity: null });
     });
   });
+
+  describe('Conversational Filler Normalization', () => {
+    it('strips "again" from the end of an add command', () => {
+      const result = parseCommand('add bananas again');
+      expect(result).toEqual({ action: 'add', item: 'bananas', quantity: 1 });
+    });
+
+    it('strips "please" from the end of an add command', () => {
+      const result = parseCommand('add milk please');
+      expect(result).toEqual({ action: 'add', item: 'milk', quantity: 1 });
+    });
+
+    it('strips multiple filler words', () => {
+      const result = parseCommand('buy 2 apples please also');
+      expect(result).toEqual({ action: 'add', item: 'apples', quantity: 2 });
+    });
+  });
 });

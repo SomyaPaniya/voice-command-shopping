@@ -128,6 +128,14 @@ function App() {
       return;
     }
 
+    if (command.item) {
+      command.item = command.item
+        .toLowerCase()
+        .replace(/\b(please|again|also|too|some more|add|buy)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     if (command.action === "add") {
       if (!command.item) return;
       let qty = command.quantity !== null ? command.quantity : 1;

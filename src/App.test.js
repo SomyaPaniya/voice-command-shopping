@@ -309,4 +309,34 @@ describe("Phase 6: Smart Suggestions", () => {
     const updatedHistory = JSON.parse(window.localStorage.getItem("purchaseHistory"));
     expect(updatedHistory.milk).toBe(4);
   });
+
+  it('merges duplicate items even if filler words are spoken', async () => {
+    let instance;
+    window.SpeechRecognition = jest.fn().mockImplementation(() => {
+      instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+      return instance;
+    });
+    
+    render(<App />);
+    const button = screen.getByRole("button", { name: /start listening/i });
+    fireEvent.click(button);
+    act(() => { instance.onstart(); });
+    
+    await act(async () => {
+      await instance.onresult({ results: [[{ transcript: "add bananas" }]] });
+    });
+    
+    await waitFor(() => expect(screen.getAllByText(/bananas/i).length).toBeGreaterThan(0));
+    
+    await act(async () => {
+      await instance.onresult({ results: [[{ transcript: "add bananas again" }]] });
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/2\s*·\s*Produce/i)).toBeInTheDocument();
+    });
+    
+    const bananasRows = screen.getAllByText(/bananas/i).filter(el => el.classList.contains("row-name"));
+    expect(bananasRows).toHaveLength(1);
+  });
 });
