@@ -53,7 +53,8 @@ User request to parse: "${text}"`;
         generationConfig: {
           temperature: 0.1,
         }
-      })
+      }),
+      signal: AbortSignal.timeout(8000)
     });
 
     if (!response.ok) {
@@ -112,6 +113,9 @@ User request to parse: "${text}"`;
     });
 
   } catch (error) {
+    if (error.name === 'TimeoutError') {
+      return res.status(200).json({ action: 'unknown', item: null, quantity: null });
+    }
     // Network errors or internal runtime errors
     return res.status(500).json({ error: `Server error: ${error.message}` });
   }
