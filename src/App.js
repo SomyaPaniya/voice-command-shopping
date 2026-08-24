@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import { parseCommand } from "./commandParser";
+import { Mic, ShoppingCart, Search, Leaf, Lightbulb, X, Plus, Trash2, Milk, Apple, Croissant, CupSoda, Cookie, Package } from "lucide-react";
 
 function App() {
   const [transcript, setTranscript] = useState("");
@@ -322,7 +323,7 @@ function App() {
       <header className="app-header">
         <div className="header-content">
           <h1 className="brand-title">
-            <span className="brand-icon">🛒</span> VoiceCart
+            <span className="brand-icon"><span className="sr-only">🛒</span><ShoppingCart size={28} className="brand-icon" /></span> VoiceCart
           </h1>
           <p className="brand-subtitle">Voice Command Shopping Assistant</p>
           <p className="brand-description">
@@ -386,7 +387,7 @@ function App() {
             >
               {isListening ? (
                 <>
-                  <span className="pulse-ring"></span>🔴 Listening...
+                  <span className="pulse-ring"></span><span className="sr-only">🔴 </span><Mic size={20} /><span className="mic-text">Listening...</span>
                 </>
               ) : isParsing ? (
                 <>
@@ -443,7 +444,7 @@ function App() {
 
         {searchResults.length > 0 && (
           <section className="search-results-section" aria-label="Search Results">
-            <h3>🔍 Search Results</h3>
+            <h3 className="section-title"><span className="sr-only">🔍 </span><Search size={20} />Search Results</h3>
             <ul className="search-list">
               {searchResults.map(prod => (
                 <li key={prod.id} className="search-item-row">
@@ -458,7 +459,7 @@ function App() {
                       setSearchResults([]);
                     }}
                   >
-                    + Add
+                    <Plus size={16} /> Add
                   </button>
                 </li>
               ))}
@@ -481,8 +482,8 @@ function App() {
 
             {substituteSuggestion && (
               <div className="substitute-alert">
-                <span>💡 Added <strong>{substituteSuggestion.original}</strong>. Try <strong>{substituteSuggestion.substitute}</strong> next time for a healthier choice!</span>
-                <button className="btn-dismiss" onClick={() => setSubstituteSuggestion(null)}>✖</button>
+                <span className="alert-text"><span className="sr-only">💡 Added</span><span aria-hidden="true" style={{display: "flex", alignItems: "center", gap: "8px"}}><Lightbulb size={16} /> Added</span> <strong>{substituteSuggestion.original}</strong>. Try <strong>{substituteSuggestion.substitute}</strong> next time for a healthier choice!</span>
+                <button className="btn-dismiss" onClick={() => setSubstituteSuggestion(null)}><span className="sr-only">✖</span><X size={16} /></button>
               </div>
             )}
 
@@ -521,7 +522,7 @@ function App() {
 
           {currentSeasonals.length > 0 && (
             <aside className="suggestions-aside seasonal-aside" aria-label="Seasonal Recommendations">
-              <h3>🌞 Seasonal Picks</h3>
+              <h3 className="section-title"><span className="sr-only">🌞 Seasonal Picks</span><span aria-hidden="true" style={{display: "flex", alignItems: "center", gap: "8px"}}><Leaf size={20} /> Seasonal Picks</span></h3>
               <p>Perfect for this month:</p>
               <div className="suggestion-chips">
                 {currentSeasonals.map((itemName) => (
@@ -531,7 +532,7 @@ function App() {
                     onClick={() => processShoppingCommand({ action: 'add', item: itemName, quantity: 1 })}
                     aria-label={"Add " + itemName + " to list"}
                   >
-                    {capitalize(itemName)} <span className="chip-plus">+</span>
+                    {capitalize(itemName)} <Plus size={14} className="chip-plus" />
                   </button>
                 ))}
               </div>
@@ -540,7 +541,7 @@ function App() {
 
           {suggestions.length > 0 && (
             <aside className="suggestions-aside" aria-label="Smart Suggestions">
-              <h3>✨ Suggestions for you</h3>
+              <h3 className="section-title"><span className="sr-only">✨ Suggestions for you</span><span aria-hidden="true" style={{display: "flex", alignItems: "center", gap: "8px"}}><Lightbulb size={20} /> Suggestions for you</span></h3>
               <p>Based on your previous shopping:</p>
               <div className="suggestion-chips">
                 {suggestions.map((itemName) => (
@@ -556,7 +557,7 @@ function App() {
                     }
                     aria-label={"Add " + itemName + " to list"}
                   >
-                    {capitalize(itemName)} <span className="chip-plus">+</span>
+                    {capitalize(itemName)} <Plus size={14} className="chip-plus" />
                   </button>
                 ))}
               </div>
