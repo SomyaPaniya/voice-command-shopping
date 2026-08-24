@@ -14,6 +14,16 @@ export function parseCommand(text) {
 
   // Normalize the input text: convert to lowercase and remove extra whitespace
   const normalizedText = text.toLowerCase().trim();
+  const searchMatch = normalizedText.match(/^(search|find|look for)\\s+(.*)/i);
+  if (searchMatch) {
+    return {
+      action: "search",
+      item: searchMatch[2].trim(),
+      quantity: 1,
+      brand: null,
+      maxPrice: null
+    };
+  }
 
   // List of readable rules/patterns to match against the transcript.
   // We evaluate them top-to-bottom. The first one that matches wins.

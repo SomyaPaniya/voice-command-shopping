@@ -24,13 +24,17 @@ Return ONLY a raw JSON object with absolutely NO markdown formatting, NO code fe
 
 The exact shape of the JSON MUST be:
 {
-  "action": "add" | "remove" | "unknown",
+  "action": "add" | "remove" | "search" | "unknown",
   "item": string | null,
-  "quantity": number | null
+  "quantity": number | null,
+  "brand": string | null,
+  "maxPrice": number | null
 }
 
 If the user is asking to add or buy something, action is "add".
 If the user is asking to remove or delete something, action is "remove".
+If the user is asking to search, find, or look for something (e.g. "find Silk milk under 5 dollars"), action is "search".
+For search, extract the brand if specified, and maxPrice if a maximum price or budget is specified.
 If the phrase is gibberish, empty, or unrelated to shopping, action is "unknown".
 Filter out unit words like "bottles of", "packs of", etc., from the item name. 
 Default quantity to 1 if not specified.
@@ -93,7 +97,7 @@ User request to parse: "${text}"`;
     }
 
     // Validate the shape
-    const validActions = ['add', 'remove', 'unknown'];
+    const validActions = ['add', 'remove', 'search', 'unknown'];
     if (
       !parsed || 
       typeof parsed !== 'object' ||
@@ -109,7 +113,9 @@ User request to parse: "${text}"`;
     return res.status(200).json({
       action: parsed.action,
       item: parsed.item,
-      quantity: parsed.quantity
+      quantity: parsed.quantity,
+      brand: parsed.brand || null,
+      maxPrice: parsed.maxPrice || null
     });
 
   } catch (error) {
