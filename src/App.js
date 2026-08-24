@@ -3,18 +3,104 @@ import './App.css';
 import { parseCommand } from './commandParser';
 
 function App() {
-  // State variables strictly conforming to Phase 1, 2, & 3 requirements
+  // Phase 1-3 States
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState('');
   const [isSupported, setIsSupported] = useState(true);
-  
   const [parsedResult, setParsedResult] = useState(null);
-  
-  // Phase 3 States
   const [language, setLanguage] = useState('en-US');
   const [isParsing, setIsParsing] = useState(false);
-  const [parseSource, setParseSource] = useState(''); // 'Gemini' or 'Rule-based (fallback)'
+  const [parseSource, setParseSource] = useState('');
+  
+  // Phase 4 States
+  const [shoppingList, setShoppingList] = useState([]);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+
+  // Phase 4: Helper to categorize item
+  const categorizeItem = (itemName) => {
+    if (!itemName) return 'Other';
+    const lowerItem = itemName.toLowerCase();
+    if (['milk', 'cheese', 'butter', 'yogurt', 'curd'].includes(lowerItem)) return 'Dairy';
+    if (['apple', 'apples', 'banana', 'bananas', 'orange', 'oranges', 'tomato', 'tomatoes', 'potato', 'potatoes'].includes(lowerItem)) return 'Produce';
+    if (['bread', 'cake', 'biscuit', 'biscuits'].includes(lowerItem)) return 'Bakery';
+    if (['water', 'juice', 'coffee', 'tea'].includes(lowerItem)) return 'Beverages';
+    if (['chips', 'chocolate', 'cookies'].includes(lowerItem)) return 'Snacks';
+    return 'Other';
+  };
+
+  // Phase 4: Helper to capitalize item names
+  const capitalize = (str) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  // Phase 4: Process parsed command into shopping list
+  const processShoppingCommand = (command) => {
+    setFeedbackMessage('');
+    
+    if (command.action === 'unknown') {
+      setFeedbackMessage("I couldn't understand that shopping command.");
+      return;
+    }
+
+    if (command.action === 'add') {
+      if (!command.item) return;
+      let qty = command.quantity !== null ? command.quantity : 1;
+      if (qty <= 0) return; // Prevent zero/negative quantities
+      
+      setShoppingList((prevList) => {
+        const existingIndex = prevList.findIndex(
+          (i) => i.item.toLowerCase() === command.item.toLowerCase()
+        );
+        
+        if (existingIndex >= 0) {
+          // Increase quantity of existing item
+          const newList = [...prevList];
+          newList[existingIndex] = {
+            ...newList[existingIndex],
+            quantity: newList[existingIndex].quantity + qty
+          };
+          return newList;
+        } else {
+          // Add new item
+          return [
+            ...prevList,
+            {
+              id: Date.now() + Math.random().toString(), // unique identifier
+              item: capitalize(command.item),
+              quantity: qty,
+              category: categorizeItem(command.item)
+            }
+          ];
+        }
+      });
+    } else if (command.action === 'remove') {
+      if (!command.item) return;
+      
+      setShoppingList((prevList) => {
+        const existingIndex = prevList.findIndex(
+          (i) => i.item.toLowerCase() === command.item.toLowerCase()
+        );
+        
+        if (existingIndex >= 0) {
+          // Remove existing item
+          const newList = [...prevList];
+          newList.splice(existingIndex, 1);
+          return newList;
+        } else {
+          // Item not found
+          setFeedbackMessage(`${capitalize(command.item)} is not in your shopping list.`);
+          return prevList;
+        }
+      });
+    }
+  };
+
+  // Phase 4: Manual remove handler
+  const manualRemove = (id) => {
+    setShoppingList((prev) => prev.filter(item => item.id !== id));
+  };
 
   // Check browser support on component mount
   useEffect(() => {
@@ -31,23 +117,18 @@ function App() {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    // Safety guard if the browser does not support SpeechRecognition
     if (!SpeechRecognition) {
       setError("Voice recognition isn't supported in this browser. Please use Google Chrome.");
       return;
     }
 
-    // Reset error message on a fresh attempt
     setError('');
+    setFeedbackMessage('');
 
     try {
       const recognition = new SpeechRecognition();
-
-      // Phase 1 Requirements
       recognition.continuous = false;
       recognition.interimResults = false;
-      
-      // Phase 3: Set dynamic language
       recognition.lang = language;
 
       recognition.onstart = () => {
@@ -55,7 +136,6 @@ function App() {
       };
 
       recognition.onresult = async (event) => {
-        // Extract the final recognized speech transcript
         const currentTranscript = event.results[0][0].transcript;
         setTranscript(currentTranscript);
         
@@ -64,7 +144,6 @@ function App() {
         setParseSource('');
 
         try {
-          // Phase 3: Gemini API fetch with timeout
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -85,7 +164,6 @@ function App() {
 
           const data = await res.json();
           
-          // Validate structure
           const validActions = ['add', 'remove', 'unknown'];
           if (
             data && 
@@ -96,15 +174,17 @@ function App() {
           ) {
             setParsedResult(data);
             setParseSource('Gemini');
+            processShoppingCommand(data);
           } else {
             throw new Error('Invalid response shape from API');
           }
 
         } catch (err) {
-          // Fallback to Phase 2 rule-based parser on any failure/timeout
           console.warn('Gemini NLP failed, falling back to rule-based parser:', err);
-          setParsedResult(parseCommand(currentTranscript));
+          const fallbackData = parseCommand(currentTranscript);
+          setParsedResult(fallbackData);
           setParseSource('Rule-based (fallback)');
+          processShoppingCommand(fallbackData);
         } finally {
           setIsParsing(false);
         }
@@ -141,24 +221,28 @@ function App() {
       <div className="card">
         <header className="card-header">
           <h1 className="title">🛒 Voice Command Shopping Assistant</h1>
-          <p className="subtitle">Phase 3: Gemini NLP + Rule-based Fallback</p>
+          <p className="subtitle">Phase 4: Shopping List Management</p>
         </header>
 
-        {/* Browser Compatibility Notice */}
         {!isSupported && (
           <div className="alert alert-warning" role="alert">
             Voice recognition isn't supported in this browser. Please use Google Chrome.
           </div>
         )}
 
-        {/* Error Alert Display */}
         {error && isSupported && (
           <div className="alert alert-danger" role="alert">
             ⚠️ {error}
           </div>
         )}
+        
+        {/* Phase 4 Feedback Message */}
+        {feedbackMessage && (
+          <div className="alert alert-warning" role="alert">
+            ℹ️ {feedbackMessage}
+          </div>
+        )}
 
-        {/* Active Listening Indicator */}
         {isListening && (
           <div className="listening-indicator" aria-live="polite">
             <span className="pulse-dot"></span>
@@ -166,7 +250,6 @@ function App() {
           </div>
         )}
 
-        {/* Phase 3: Language Selection */}
         <div className="language-selector">
           <label htmlFor="lang-select">Language: </label>
           <select 
@@ -180,7 +263,6 @@ function App() {
           </select>
         </div>
 
-        {/* Voice Recognition Trigger Button */}
         <div className="controls">
           <button
             type="button"
@@ -192,7 +274,6 @@ function App() {
           </button>
         </div>
 
-        {/* Recognized Transcript Display Card */}
         <section className="transcript-section">
           <h2 className="section-title">Recognized Transcript</h2>
           <div className="transcript-container">
@@ -206,14 +287,12 @@ function App() {
           </div>
         </section>
 
-        {/* Parsing Indicator */}
         {isParsing && (
           <div className="parsing-indicator">
             Parsing command...
           </div>
         )}
 
-        {/* Phase 2 & 3: Parsed Result Display */}
         {parsedResult && !isParsing && (
           <section className="parsed-section">
             <h2 className="section-title">Parsed Command</h2>
@@ -225,6 +304,26 @@ function App() {
             </div>
           </section>
         )}
+        
+        {/* Phase 4: Shopping List UI */}
+        <section className="shopping-list-section">
+          <h2 className="section-title">Shopping List</h2>
+          {shoppingList.length === 0 ? (
+            <p className="empty-state">Your shopping list is empty.</p>
+          ) : (
+            <ul className="shopping-list">
+              {shoppingList.map((item) => (
+                <li key={item.id} className="shopping-list-item">
+                  <div className="item-details">
+                    <span className="item-name">{item.item}</span>
+                    <span className="item-meta">Quantity: {item.quantity} | Category: {item.category}</span>
+                  </div>
+                  <button className="btn-remove" onClick={() => manualRemove(item.id)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );

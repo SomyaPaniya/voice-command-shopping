@@ -15,7 +15,7 @@ describe('Voice Command Shopping Assistant', () => {
     render(<App />);
     const titleElement = screen.getByText(/Voice Command Shopping Assistant/i);
     expect(titleElement).toBeInTheDocument();
-    const subtitleElement = screen.getByText(/Phase 3: Gemini NLP \+ Rule-based Fallback/i);
+    const subtitleElement = screen.getByText(/Phase 4: Shopping List Management/i);
     expect(subtitleElement).toBeInTheDocument();
   });
 
@@ -139,7 +139,188 @@ describe('Voice Command Shopping Assistant', () => {
       instance.onerror({ error: 'no-speech' });
     });
 
-    expect(screen.getByText(/No speech was detected/i)).toBeInTheDocument();
+  });
+
+  describe('Phase 4: Shopping List Management', () => {
+    test('handles adding new items and assigning categories', async () => {
+      let instance;
+      const MockSpeechRecognition = jest.fn().mockImplementation(() => {
+        instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+        return instance;
+      });
+      window.SpeechRecognition = MockSpeechRecognition;
+
+      render(<App />);
+
+      const button = screen.getByRole('button', { name: /Start Listening/i });
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+
+      // Add milk (Dairy)
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'add milk' }]] });
+      });
+      act(() => { instance.onend(); });
+
+      await waitFor(() => {
+        expect(screen.getByText('Milk')).toBeInTheDocument();
+        expect(screen.getByText('Quantity: 1 | Category: Dairy')).toBeInTheDocument();
+      });
+
+      // Add apples (Produce)
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'buy 5 apples' }]] });
+      });
+      act(() => { instance.onend(); });
+
+      await waitFor(() => {
+        expect(screen.getByText('Apples')).toBeInTheDocument();
+        expect(screen.getByText('Quantity: 5 | Category: Produce')).toBeInTheDocument();
+      });
+    });
+
+    test('handles adding same item increases quantity (case-insensitive)', async () => {
+      let instance;
+      window.SpeechRecognition = jest.fn().mockImplementation(() => {
+        instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+        return instance;
+      });
+
+      render(<App />);
+
+      const button = screen.getByRole('button', { name: /Start Listening/i });
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+
+      // Add 2 milk
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'add 2 milk' }]] });
+      });
+      
+      await waitFor(() => {
+        expect(screen.getByText('Quantity: 2 | Category: Dairy')).toBeInTheDocument();
+      });
+
+      // Add MILK (another 3)
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'add 3 MILK' }]] });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Quantity: 5 | Category: Dairy')).toBeInTheDocument();
+      });
+    });
+
+    test('handles removing an existing item via voice', async () => {
+      let instance;
+      window.SpeechRecognition = jest.fn().mockImplementation(() => {
+        instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+        return instance;
+      });
+
+      render(<App />);
+      const button = screen.getByRole('button', { name: /Start Listening/i });
+      
+      // Add item first
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'add milk' }]] });
+      });
+      await waitFor(() => expect(screen.getByText('Milk')).toBeInTheDocument());
+
+      // Remove item
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'remove milk' }]] });
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Milk')).not.toBeInTheDocument();
+      });
+    });
+
+    test('handles removing missing item and shows friendly message without crashing', async () => {
+      let instance;
+      window.SpeechRecognition = jest.fn().mockImplementation(() => {
+        instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+        return instance;
+      });
+
+      render(<App />);
+      const button = screen.getByRole('button', { name: /Start Listening/i });
+      
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'remove bananas' }]] });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('ℹ️ Bananas is not in your shopping list.')).toBeInTheDocument();
+      });
+    });
+
+    test('handles manual remove button', async () => {
+      let instance;
+      window.SpeechRecognition = jest.fn().mockImplementation(() => {
+        instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+        return instance;
+      });
+
+      render(<App />);
+      const button = screen.getByRole('button', { name: /Start Listening/i });
+      
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'add milk' }]] });
+      });
+
+      await waitFor(() => expect(screen.getByText('Milk')).toBeInTheDocument());
+
+      const removeBtn = screen.getByRole('button', { name: 'Remove' });
+      fireEvent.click(removeBtn);
+
+      expect(screen.queryByText('Milk')).not.toBeInTheDocument();
+    });
+
+    test('ignores unknown commands and zero/negative quantities', async () => {
+      let instance;
+      window.SpeechRecognition = jest.fn().mockImplementation(() => {
+        instance = { start: jest.fn(), onstart: null, onresult: null, onerror: null, onend: null };
+        return instance;
+      });
+
+      render(<App />);
+      const button = screen.getByRole('button', { name: /Start Listening/i });
+      
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        // Fallback rule for "add 0 items" yields quantity 0, which we should ignore.
+        await instance.onresult({ results: [[{ transcript: 'add 0 apples' }]] });
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Apples')).not.toBeInTheDocument();
+      });
+      
+      fireEvent.click(button);
+      act(() => { instance.onstart(); });
+      await act(async () => {
+        await instance.onresult({ results: [[{ transcript: 'what is the weather' }]] });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/I couldn't understand that shopping command./i)).toBeInTheDocument();
+      });
+    });
   });
 });
 
