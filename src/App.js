@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { parseCommand } from './commandParser';
 
 function App() {
-  // State variables strictly conforming to Phase 1 requirements
+  // State variables strictly conforming to Phase 1 & 2 requirements
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState('');
   const [isSupported, setIsSupported] = useState(true);
+  
+  // Phase 2: State to hold the rule-based parsed result
+  const [parsedResult, setParsedResult] = useState(null);
 
   // Check browser support on component mount
   useEffect(() => {
@@ -50,6 +54,9 @@ function App() {
         // Extract the final recognized speech transcript
         const currentTranscript = event.results[0][0].transcript;
         setTranscript(currentTranscript);
+        
+        // Phase 2: Run the rule-based parser on the raw transcript
+        setParsedResult(parseCommand(currentTranscript));
       };
 
       recognition.onerror = (event) => {
@@ -83,7 +90,7 @@ function App() {
       <div className="card">
         <header className="card-header">
           <h1 className="title">🛒 Voice Command Shopping Assistant</h1>
-          <p className="subtitle">Phase 1: Voice Input</p>
+          <p className="subtitle">Phase 1 & 2: Voice Input & Parsing</p>
         </header>
 
         {/* Browser Compatibility Notice */}
@@ -133,6 +140,18 @@ function App() {
             )}
           </div>
         </section>
+
+        {/* Phase 2: Parsed Result Display */}
+        {parsedResult && (
+          <section className="parsed-section">
+            <h2 className="section-title">Parsed Command</h2>
+            <div className="parsed-container">
+              <p><strong>Action:</strong> <span className="parsed-val">{parsedResult.action}</span></p>
+              <p><strong>Item:</strong> <span className="parsed-val">{parsedResult.item || 'N/A'}</span></p>
+              <p><strong>Quantity:</strong> <span className="parsed-val">{parsedResult.quantity !== null ? parsedResult.quantity : 'N/A'}</span></p>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
