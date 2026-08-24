@@ -110,14 +110,14 @@ function App() {
 
   const getCategoryEmoji = (category) => {
     const map = {
-      Dairy: "🥛",
-      Produce: "🍎",
-      Bakery: "🍞",
-      Beverages: "🧃",
-      Snacks: "🍪",
-      Other: "🛍️",
+      Dairy: <><span className="sr-only">🥛</span><Milk size={20} /></>,
+      Produce: <><span className="sr-only">🍎</span><Apple size={20} /></>,
+      Bakery: <><span className="sr-only">🥐</span><Croissant size={20} /></>,
+      Beverages: <><span className="sr-only">🥤</span><CupSoda size={20} /></>,
+      Snacks: <><span className="sr-only">🍪</span><Cookie size={20} /></>,
+      Other: <><span className="sr-only">📦</span><Package size={20} /></>,
     };
-    return map[category] || "🛍️";
+    return map[category] || <><span className="sr-only">📦</span><Package size={20} /></>;
   };
 
   const processShoppingCommand = (command) => {
@@ -510,9 +510,7 @@ function App() {
                       className="btn-remove-row"
                       onClick={() => manualRemove(item.id)}
                       aria-label={"Remove " + item.item + " from list"}
-                    >
-                      Remove
-                    </button>
+                    ><Trash2 size={16} /><span className="sr-only">Remove</span></button>
                   </li>
                 ))}
               </ul>
