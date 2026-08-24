@@ -3,14 +3,18 @@ import './App.css';
 import { parseCommand } from './commandParser';
 
 function App() {
-  // State variables strictly conforming to Phase 1 & 2 requirements
+  // State variables strictly conforming to Phase 1, 2, & 3 requirements
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState('');
   const [isSupported, setIsSupported] = useState(true);
   
-  // Phase 2: State to hold the rule-based parsed result
   const [parsedResult, setParsedResult] = useState(null);
+  
+  // Phase 3 States
+  const [language, setLanguage] = useState('en-US');
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseSource, setParseSource] = useState(''); // 'Gemini' or 'Rule-based (fallback)'
 
   // Check browser support on component mount
   useEffect(() => {
@@ -39,24 +43,71 @@ function App() {
     try {
       const recognition = new SpeechRecognition();
 
-      // Phase 1 Requirements:
-      // continuous: false -> process one phrase per click
-      // interimResults: false -> deliver final recognized speech only after speaking ends
+      // Phase 1 Requirements
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      
+      // Phase 3: Set dynamic language
+      recognition.lang = language;
 
       recognition.onstart = () => {
         setIsListening(true);
       };
 
-      recognition.onresult = (event) => {
+      recognition.onresult = async (event) => {
         // Extract the final recognized speech transcript
         const currentTranscript = event.results[0][0].transcript;
         setTranscript(currentTranscript);
         
-        // Phase 2: Run the rule-based parser on the raw transcript
-        setParsedResult(parseCommand(currentTranscript));
+        setIsParsing(true);
+        setParsedResult(null);
+        setParseSource('');
+
+        try {
+          // Phase 3: Gemini API fetch with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+          const res = await fetch('/api/parse', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: currentTranscript }),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+
+          if (!res.ok) {
+            throw new Error(`API returned ${res.status}`);
+          }
+
+          const data = await res.json();
+          
+          // Validate structure
+          const validActions = ['add', 'remove', 'unknown'];
+          if (
+            data && 
+            typeof data === 'object' && 
+            validActions.includes(data.action) && 
+            (data.item === null || typeof data.item === 'string') && 
+            (data.quantity === null || typeof data.quantity === 'number')
+          ) {
+            setParsedResult(data);
+            setParseSource('Gemini');
+          } else {
+            throw new Error('Invalid response shape from API');
+          }
+
+        } catch (err) {
+          // Fallback to Phase 2 rule-based parser on any failure/timeout
+          console.warn('Gemini NLP failed, falling back to rule-based parser:', err);
+          setParsedResult(parseCommand(currentTranscript));
+          setParseSource('Rule-based (fallback)');
+        } finally {
+          setIsParsing(false);
+        }
       };
 
       recognition.onerror = (event) => {
@@ -90,7 +141,7 @@ function App() {
       <div className="card">
         <header className="card-header">
           <h1 className="title">🛒 Voice Command Shopping Assistant</h1>
-          <p className="subtitle">Phase 1 & 2: Voice Input & Parsing</p>
+          <p className="subtitle">Phase 3: Gemini NLP + Rule-based Fallback</p>
         </header>
 
         {/* Browser Compatibility Notice */}
@@ -115,13 +166,27 @@ function App() {
           </div>
         )}
 
+        {/* Phase 3: Language Selection */}
+        <div className="language-selector">
+          <label htmlFor="lang-select">Language: </label>
+          <select 
+            id="lang-select" 
+            value={language} 
+            onChange={(e) => setLanguage(e.target.value)} 
+            disabled={isListening || isParsing}
+          >
+            <option value="en-US">English</option>
+            <option value="hi-IN">Hindi</option>
+          </select>
+        </div>
+
         {/* Voice Recognition Trigger Button */}
         <div className="controls">
           <button
             type="button"
             className={`btn-listen ${isListening ? 'listening' : ''}`}
             onClick={handleStartListening}
-            disabled={isListening || !isSupported}
+            disabled={isListening || isParsing || !isSupported}
           >
             {isListening ? '🎙️ Listening...' : '🎙️ Start Listening'}
           </button>
@@ -141,14 +206,22 @@ function App() {
           </div>
         </section>
 
-        {/* Phase 2: Parsed Result Display */}
-        {parsedResult && (
+        {/* Parsing Indicator */}
+        {isParsing && (
+          <div className="parsing-indicator">
+            Parsing command...
+          </div>
+        )}
+
+        {/* Phase 2 & 3: Parsed Result Display */}
+        {parsedResult && !isParsing && (
           <section className="parsed-section">
             <h2 className="section-title">Parsed Command</h2>
             <div className="parsed-container">
               <p><strong>Action:</strong> <span className="parsed-val">{parsedResult.action}</span></p>
               <p><strong>Item:</strong> <span className="parsed-val">{parsedResult.item || 'N/A'}</span></p>
               <p><strong>Quantity:</strong> <span className="parsed-val">{parsedResult.quantity !== null ? parsedResult.quantity : 'N/A'}</span></p>
+              <p className="parse-source">Parsed via: <strong>{parseSource}</strong></p>
             </div>
           </section>
         )}
