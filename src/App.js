@@ -3,7 +3,6 @@ import "./App.css";
 import { parseCommand } from "./commandParser";
 
 function App() {
-  // Phase 1-3 States
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState("");
@@ -13,55 +12,38 @@ function App() {
   const [isParsing, setIsParsing] = useState(false);
   const [parseSource, setParseSource] = useState("");
 
-  // Phase 4 & 5 States
   const [shoppingList, setShoppingList] = useState(() => {
-    // Phase 5: Load initial state from localStorage safely
     try {
       const saved = localStorage.getItem("shoppingList");
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      if (saved) return JSON.parse(saved);
     } catch (err) {
-      console.warn(
-        "Failed to parse shopping list from localStorage. Starting with empty list.",
-        err,
-      );
+      console.warn("Failed to parse shopping list", err);
     }
     return [];
   });
 
   const [feedbackMessage, setFeedbackMessage] = useState("");
 
-  // Phase 5: Save to localStorage whenever shoppingList changes
   useEffect(() => {
     try {
       localStorage.setItem("shoppingList", JSON.stringify(shoppingList));
-    } catch (err) {
-      console.error("Failed to save shopping list to localStorage", err);
-    }
+    } catch (err) {}
   }, [shoppingList]);
 
-  // Phase 6: Smart Suggestions state
   const [purchaseHistory, setPurchaseHistory] = useState(() => {
     try {
       const saved = localStorage.getItem("purchaseHistory");
       if (saved) return JSON.parse(saved);
-    } catch (err) {
-      console.warn("Failed to parse purchase history", err);
-    }
+    } catch (err) {}
     return {};
   });
 
-  // Phase 6: Save history to localStorage
   useEffect(() => {
     try {
       localStorage.setItem("purchaseHistory", JSON.stringify(purchaseHistory));
-    } catch (err) {
-      console.error("Failed to save purchase history", err);
-    }
+    } catch (err) {}
   }, [purchaseHistory]);
 
-  // Phase 4: Helper to categorize item
   const categorizeItem = (itemName) => {
     if (!itemName) return "Other";
     const lowerItem = itemName.toLowerCase();
@@ -90,13 +72,23 @@ function App() {
     return "Other";
   };
 
-  // Phase 4: Helper to capitalize item names
   const capitalize = (str) => {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  // Phase 4: Process parsed command into shopping list
+  const getCategoryEmoji = (category) => {
+    const map = {
+      Dairy: "🥛",
+      Produce: "🍎",
+      Bakery: "🍞",
+      Beverages: "🧃",
+      Snacks: "🍪",
+      Other: "🛍️",
+    };
+    return map[category] || "🛍️";
+  };
+
   const processShoppingCommand = (command) => {
     setFeedbackMessage("");
 
@@ -108,9 +100,8 @@ function App() {
     if (command.action === "add") {
       if (!command.item) return;
       let qty = command.quantity !== null ? command.quantity : 1;
-      if (qty <= 0) return; // Prevent zero/negative quantities
+      if (qty <= 0) return;
 
-      // Phase 6: Record history
       setPurchaseHistory((prev) => {
         const lowerName = command.item.toLowerCase();
         return { ...prev, [lowerName]: (prev[lowerName] || 0) + 1 };
@@ -122,7 +113,6 @@ function App() {
         );
 
         if (existingIndex >= 0) {
-          // Increase quantity of existing item
           const newList = [...prevList];
           newList[existingIndex] = {
             ...newList[existingIndex],
@@ -130,11 +120,10 @@ function App() {
           };
           return newList;
         } else {
-          // Add new item
           return [
             ...prevList,
             {
-              id: Date.now() + Math.random().toString(), // unique identifier
+              id: Date.now() + Math.random().toString(),
               item: capitalize(command.item),
               quantity: qty,
               category: categorizeItem(command.item),
@@ -144,38 +133,29 @@ function App() {
       });
     } else if (command.action === "remove") {
       if (!command.item) return;
-
       setShoppingList((prevList) => {
-        const existingIndex = prevList.findIndex(
-          (i) => i.item.toLowerCase() === command.item.toLowerCase(),
+        const lowerMatch = command.item.toLowerCase();
+        const exists = prevList.some(
+          (i) => i.item.toLowerCase() === lowerMatch,
         );
-
-        if (existingIndex >= 0) {
-          // Remove existing item
-          const newList = [...prevList];
-          newList.splice(existingIndex, 1);
-          return newList;
-        } else {
-          // Item not found
+        if (!exists) {
           setFeedbackMessage(
-            `${capitalize(command.item)} is not in your shopping list.`,
+            'Could not find "' + command.item + '" in your shopping list.',
           );
           return prevList;
         }
+        return prevList.filter((i) => i.item.toLowerCase() !== lowerMatch);
       });
     }
   };
 
-  // Phase 4: Manual remove handler
   const manualRemove = (id) => {
     setShoppingList((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Check browser support on component mount
   useEffect(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-
     if (!SpeechRecognition) {
       setIsSupported(false);
       setError(
@@ -204,14 +184,11 @@ function App() {
       recognition.interimResults = false;
       recognition.lang = language;
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
+      recognition.onstart = () => setIsListening(true);
 
       recognition.onresult = async (event) => {
         const currentTranscript = event.results[0][0].transcript;
         setTranscript(currentTranscript);
-
         setIsParsing(true);
         setParsedResult(null);
         setParseSource("");
@@ -222,21 +199,15 @@ function App() {
 
           const res = await fetch("/api/parse", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: currentTranscript }),
             signal: controller.signal,
           });
 
           clearTimeout(timeoutId);
-
-          if (!res.ok) {
-            throw new Error(`API returned ${res.status}`);
-          }
+          if (!res.ok) throw new Error("API returned " + res.status);
 
           const data = await res.json();
-
           const validActions = ["add", "remove", "unknown"];
           if (
             data &&
@@ -285,14 +256,11 @@ function App() {
             "Network error occurred during speech recognition. Please check your connection.",
           );
         } else {
-          setError(`Speech recognition error: ${event.error}`);
+          setError("Speech recognition error: " + event.error);
         }
       };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
+      recognition.onend = () => setIsListening(false);
       recognition.start();
     } catch (err) {
       setIsListening(false);
@@ -300,25 +268,42 @@ function App() {
     }
   };
 
-  // Phase 6: Compute smart suggestions
   const currentItemNames = shoppingList.map((item) => item.item.toLowerCase());
   const suggestions = Object.entries(purchaseHistory)
     .filter(([name]) => !currentItemNames.includes(name))
-    .sort((a, b) => b[1] - a[1]) // sort by frequency descending
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([name]) => name);
 
   return (
-    <main className="app-main">
-      <article className="card">
-        <header className="card-header">
-          <h1 className="title">🛒 Voice Command Shopping Assistant</h1>
-          <p className="subtitle">Phase 5: LocalStorage Persistence</p>
-        </header>
-        <p className="app-description">
-          The easiest way to build your shopping list with voice commands.
-        </p>
+    <div className="app-wrapper">
+      <header className="app-header">
+        <div className="header-content">
+          <h1 className="brand-title">
+            <span className="brand-icon">🛒</span> VoiceCart
+          </h1>
+          <p className="brand-subtitle">Voice Command Shopping Assistant</p>
+          <p className="brand-description">
+            Build your shopping list naturally with your voice.
+          </p>
+        </div>
+        <div className="header-actions">
+          <div className="language-selector">
+            <label htmlFor="lang-select">Language</label>
+            <select
+              id="lang-select"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              disabled={isListening || isParsing}
+            >
+              <option value="en-US">English ▾</option>
+              <option value="hi-IN">Hindi ▾</option>
+            </select>
+          </div>
+        </div>
+      </header>
 
+      <main className="app-main">
         {!isSupported && (
           <div className="alert alert-warning" role="alert">
             Voice recognition isn't supported in this browser. Please use Google
@@ -328,150 +313,144 @@ function App() {
 
         {error && isSupported && (
           <div className="alert alert-danger" role="alert">
-            ⚠️ {error}
+            ⚠ {error}
           </div>
         )}
 
-        {/* Phase 4 Feedback Message */}
         {feedbackMessage && (
           <div className="alert alert-warning" role="alert">
-            ℹ️ {feedbackMessage}
+            ⚠ {feedbackMessage}
           </div>
         )}
 
-        <section className="voice-controls-section" aria-label="Voice Controls">
-          <div className="language-selector">
-            <label htmlFor="lang-select">Language: </label>
-            <select
-              id="lang-select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              disabled={isListening || isParsing}
-            >
-              <option value="en-US">English</option>
-              <option value="hi-IN">Hindi</option>
-            </select>
-          </div>
-
-          <div className="controls">
+        <section className="voice-command-section" aria-label="Voice Controls">
+          <h2>Add to your list</h2>
+          <p>Tell me what you need.</p>
+          <div className="voice-action-center">
             <button
               type="button"
-              className={`btn-listen ${isListening ? "listening" : ""} ${isParsing ? "parsing" : ""}`}
+              className={
+                isListening
+                  ? "btn-mic listening"
+                  : isParsing
+                    ? "btn-mic parsing"
+                    : "btn-mic"
+              }
               onClick={handleStartListening}
               disabled={isListening || isParsing || !isSupported}
               aria-label={
                 isListening ? "Listening in progress" : "Start Listening"
               }
             >
-              {isListening ? "🎙️ Listening..." : "🎙️ Start Listening"}
+              {isListening ? (
+                <>
+                  <span className="pulse-ring"></span>🔴 Listening...
+                </>
+              ) : isParsing ? (
+                <>
+                  <span className="spinner"></span>✨ Understanding...
+                </>
+              ) : (
+                <>🎙 Start Listening</>
+              )}
             </button>
           </div>
-
-          {isListening && (
-            <div className="listening-indicator" aria-live="polite">
-              <span className="pulse-dot"></span>
-              Recording your voice...
-            </div>
-          )}
         </section>
 
-        <section className="transcript-section">
-          <h2 className="section-title">Recognized Transcript</h2>
-          <div className="transcript-container">
-            {transcript ? (
-              <p className="transcript-text">{transcript}</p>
-            ) : (
-              <p className="transcript-placeholder">
-                Your recognized speech will appear here after you click
-                &quot;Start Listening&quot; and finish speaking.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {isParsing && (
-          <div className="parsing-indicator" aria-live="polite">
-            <span className="spinner"></span> Parsing command...
-          </div>
+        {transcript && (
+          <section className="transcript-preview" aria-live="polite">
+            <h3>You said</h3>
+            <blockquote className="transcript-text">"{transcript}"</blockquote>
+          </section>
         )}
 
         {parsedResult && !isParsing && (
           <section
-            className="parsed-section"
+            className="parsed-preview"
             aria-live="polite"
             aria-label="Parsed Command"
           >
-            <h2 className="section-title">Parsed Command</h2>
-            <div className="parsed-summary">
-              <div className="parsed-pill">
-                <strong>Action:</strong>{" "}
-                <span className="parsed-val">{parsedResult.action}</span>
+            <h3>
+              Understood <span className="source-badge">{parseSource}</span>
+            </h3>
+            <div className="parsed-data-row">
+              <div className="parsed-item">
+                <span className="parsed-label">Action</span>
+                <span className="parsed-value action-val">
+                  {parsedResult.action.toUpperCase()}
+                </span>
               </div>
-              <div className="parsed-pill">
-                <strong>Item:</strong>{" "}
-                <span className="parsed-val">{parsedResult.item || "N/A"}</span>
+              <div className="parsed-item">
+                <span className="parsed-label">Item</span>
+                <span className="parsed-value">
+                  {parsedResult.item ? capitalize(parsedResult.item) : "N/A"}
+                </span>
               </div>
-              <div className="parsed-pill">
-                <strong>Quantity:</strong>{" "}
-                <span className="parsed-val">
+              <div className="parsed-item">
+                <span className="parsed-label">Quantity</span>
+                <span className="parsed-value">
                   {parsedResult.quantity !== null
                     ? parsedResult.quantity
                     : "N/A"}
                 </span>
               </div>
             </div>
-            <p className="parse-source">
-              Parsed via: <strong>{parseSource}</strong>
-            </p>
           </section>
         )}
 
-        {/* Phase 4: Shopping List UI */}
-        <section className="shopping-list-section" aria-label="Shopping List">
-          <h2 className="section-title">Shopping List</h2>
-          {shoppingList.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-icon">🛒</span>
-              <p>Your shopping list is empty.</p>
-            </div>
-          ) : (
-            <ul className="shopping-list">
-              {shoppingList.map((item) => (
-                <li key={item.id} className="shopping-list-item">
-                  <div className="item-details">
-                    <span className="item-name">{item.item}</span>
-                    <span className="item-meta">
-                      Quantity: {item.quantity} | Category: {item.category}
-                    </span>
-                  </div>
-                  <button
-                    className="btn-remove"
-                    onClick={() => manualRemove(item.id)}
-                    aria-label={`Remove ${item.item} from list`}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="lists-layout">
+          <section className="shopping-list-section" aria-label="Shopping List">
+            <header className="list-header">
+              <h2>Your Shopping List</h2>
+              {shoppingList.length > 0 && (
+                <span className="item-count">
+                  {shoppingList.length}{" "}
+                  {shoppingList.length === 1 ? "item" : "items"}
+                </span>
+              )}
+            </header>
 
-        {/* Phase 6: Smart Suggestions UI */}
-        {suggestions.length > 0 && (
-          <section
-            className="suggestions-section"
-            aria-label="Smart Suggestions"
-          >
-            <h2 className="section-title">💡 Smart Suggestions</h2>
-            <div className="suggestions-list">
-              {suggestions.map((itemName) => (
-                <div key={itemName} className="suggestion-chip">
-                  <span className="suggestion-name">
-                    {capitalize(itemName)}
-                  </span>
+            {shoppingList.length === 0 ? (
+              <div className="empty-state">
+                <span className="empty-icon">🛒</span>
+                <h3>Your list is empty</h3>
+                <p>Start by saying something like "Add five apples"</p>
+              </div>
+            ) : (
+              <ul className="shopping-list">
+                {shoppingList.map((item) => (
+                  <li key={item.id} className="list-row">
+                    <div className="row-icon">
+                      {getCategoryEmoji(item.category)}
+                    </div>
+                    <div className="row-details">
+                      <span className="row-name">{item.item}</span>
+                      <span className="row-meta">
+                        {item.quantity} · {item.category}
+                      </span>
+                    </div>
+                    <button
+                      className="btn-remove-row"
+                      onClick={() => manualRemove(item.id)}
+                      aria-label={"Remove " + item.item + " from list"}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {suggestions.length > 0 && (
+            <aside className="suggestions-aside" aria-label="Smart Suggestions">
+              <h3>✨ Suggestions for you</h3>
+              <p>Based on your previous shopping:</p>
+              <div className="suggestion-chips">
+                {suggestions.map((itemName) => (
                   <button
-                    className="btn-add-suggestion"
+                    key={itemName}
+                    className="chip"
                     onClick={() =>
                       processShoppingCommand({
                         action: "add",
@@ -479,17 +458,17 @@ function App() {
                         quantity: 1,
                       })
                     }
-                    aria-label={`Add ${itemName} to list`}
+                    aria-label={"Add " + itemName + " to list"}
                   >
-                    Add
+                    {capitalize(itemName)} <span className="chip-plus">+</span>
                   </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      </article>
-    </main>
+                ))}
+              </div>
+            </aside>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
 
