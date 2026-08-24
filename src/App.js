@@ -13,9 +13,30 @@ function App() {
   const [isParsing, setIsParsing] = useState(false);
   const [parseSource, setParseSource] = useState('');
   
-  // Phase 4 States
-  const [shoppingList, setShoppingList] = useState([]);
+  // Phase 4 & 5 States
+  const [shoppingList, setShoppingList] = useState(() => {
+    // Phase 5: Load initial state from localStorage safely
+    try {
+      const saved = localStorage.getItem('shoppingList');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (err) {
+      console.warn('Failed to parse shopping list from localStorage. Starting with empty list.', err);
+    }
+    return [];
+  });
+  
   const [feedbackMessage, setFeedbackMessage] = useState('');
+
+  // Phase 5: Save to localStorage whenever shoppingList changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
+    } catch (err) {
+      console.error('Failed to save shopping list to localStorage', err);
+    }
+  }, [shoppingList]);
 
   // Phase 4: Helper to categorize item
   const categorizeItem = (itemName) => {
@@ -221,7 +242,7 @@ function App() {
       <div className="card">
         <header className="card-header">
           <h1 className="title">🛒 Voice Command Shopping Assistant</h1>
-          <p className="subtitle">Phase 4: Shopping List Management</p>
+          <p className="subtitle">Phase 5: LocalStorage Persistence</p>
         </header>
 
         {!isSupported && (
